@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <!-- Duplicated SVG defs to ensure self-contained OG -->
+    <filter id="glass-3d-og" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="12" dy="24" stdDeviation="16" flood-color="#4c1d95" flood-opacity="0.25" result="drop" />
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6" result="blur" />
+      
+      <feOffset dx="10" dy="10" in="blur" result="offsetBlurWhite" />
+      <feComposite in="SourceAlpha" in2="offsetBlurWhite" operator="out" result="whiteMask" />
+      <feFlood flood-color="#ffffff" flood-opacity="0.95" result="specWhite" />
+      <feComposite in="specWhite" in2="whiteMask" operator="in" result="specularFinal" />
+      
+      <feOffset dx="-10" dy="-10" in="blur" result="offsetBlurDark" />
+      <feComposite in="SourceAlpha" in2="offsetBlurDark" operator="out" result="darkMask" />
+      <feFlood flood-color="#000000" flood-opacity="0.25" result="specDark" />
+      <feComposite in="specDark" in2="darkMask" operator="in" result="darkFinal" />
+      
+      <feMerge>
+        <feMergeNode in="drop" />
+        <feMergeNode in="SourceGraphic" />
+        <feMergeNode in="specularFinal" />
+        <feMergeNode in="darkFinal" />
+      </feMerge>
+    </filter>
+
+    <filter id="soft-glow-og" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" />
+    </filter>
+
+    <linearGradient id="gem-og" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#ec4899"/>
+    </linearGradient>
+
+    <linearGradient id="glass-fill-og" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255, 255, 255, 0.95)"/>
+      <stop offset="50%" stop-color="rgba(255, 255, 255, 0.5)"/>
+      <stop offset="100%" stop-color="rgba(255, 255, 255, 0.15)"/>
+    </linearGradient>
+
+    <!-- Background Aura & Grid -->
+    <filter id="aura-blur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="120" />
+    </filter>
+    <pattern id="dot-grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.5" fill="rgba(15,23,42,0.06)" />
+    </pattern>
+  </defs>
+
+  <!-- Base Color -->
+  <rect width="1200" height="630" fill="#f8fafc" />
+  
+  <!-- Vibrant Colorful Aura Background -->
+  <circle cx="200" cy="100" r="350" fill="#fca5a5" filter="url(#aura-blur)" opacity="0.8" /> <!-- Rose -->
+  <circle cx="1000" cy="300" r="450" fill="#60a5fa" filter="url(#aura-blur)" opacity="0.8" /> <!-- Sky Blue -->
+  <circle cx="600" cy="650" r="350" fill="#a78bfa" filter="url(#aura-blur)" opacity="0.8" /> <!-- Violet/Purple -->
+  <circle cx="-100" cy="500" r="300" fill="#fef08a" filter="url(#aura-blur)" opacity="0.6" /> <!-- Yellow Glow -->
+
+  <!-- Subtle Dot Grid Overlay for precision toolkit feel -->
+  <rect width="1200" height="630" fill="url(#dot-grid)" />
+
+  <!-- 3D Logo Display (Centered and Scaled up slightly) -->
+  <g transform="translate(600, 240) scale(0.7) translate(-256, -256)">
+    <circle cx="256" cy="256" r="160" fill="url(#gem-og)" filter="url(#glass-3d-og)" />
+    <ellipse cx="190" cy="140" rx="70" ry="35" fill="#ffffff" filter="url(#soft-glow-og)" opacity="0.65" transform="rotate(-30 190 140)" />
+    <ellipse cx="320" cy="370" rx="80" ry="25" fill="#ffffff" filter="url(#soft-glow-og)" opacity="0.25" transform="rotate(-30 320 370)" />
+    <path d="M 152 268 L 216 332 L 360 188" fill="none" stroke="url(#glass-fill-og)" stroke-width="56" stroke-linecap="round" stroke-linejoin="round" filter="url(#glass-3d-og)"/>
+  </g>
+
+  <!-- Typography -->
+  <g transform="translate(600, 470)">
+    <text y="0" font-family="system-ui, -apple-system, sans-serif" font-size="84" font-weight="700" fill="#0f172a" text-anchor="middle" letter-spacing="-2">Zen Do</text>
+    <text y="64" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="400" fill="#475569" text-anchor="middle" letter-spacing="0">Minimalist and efficient TODO, zero distractions.</text>
+  </g>
+</svg>

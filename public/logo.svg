@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Master 3D Glass & Bevel Filter -->
+    <filter id="glass-3d" x="-20%" y="-20%" width="140%" height="140%">
+      <!-- Deep Drop Shadow -->
+      <feDropShadow dx="12" dy="24" stdDeviation="16" flood-color="#4c1d95" flood-opacity="0.25" result="drop" />
+      
+      <!-- Extract Alpha for Bevels -->
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6" result="blur" />
+      
+      <!-- Top-Left White Specular (Bevel inside) -->
+      <feOffset dx="10" dy="10" in="blur" result="offsetBlurWhite" />
+      <feComposite in="SourceAlpha" in2="offsetBlurWhite" operator="out" result="whiteMask" />
+      <feFlood flood-color="#ffffff" flood-opacity="0.95" result="specWhite" />
+      <feComposite in="specWhite" in2="whiteMask" operator="in" result="specularFinal" />
+      
+      <!-- Bottom-Right Dark Shadow (Inner shadow) -->
+      <feOffset dx="-10" dy="-10" in="blur" result="offsetBlurDark" />
+      <feComposite in="SourceAlpha" in2="offsetBlurDark" operator="out" result="darkMask" />
+      <feFlood flood-color="#000000" flood-opacity="0.25" result="specDark" />
+      <feComposite in="specDark" in2="darkMask" operator="in" result="darkFinal" />
+      
+      <feMerge>
+        <feMergeNode in="drop" />
+        <feMergeNode in="SourceGraphic" />
+        <feMergeNode in="specularFinal" />
+        <feMergeNode in="darkFinal" />
+      </feMerge>
+    </filter>
+
+    <filter id="soft-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" />
+    </filter>
+
+    <!-- Base 3D Sphere Surface -->
+    <linearGradient id="gem" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/> <!-- Brilliant Blue/Cyan -->
+      <stop offset="50%" stop-color="#6366f1"/> <!-- Indigo -->
+      <stop offset="100%" stop-color="#ec4899"/> <!-- Pink -->
+    </linearGradient>
+
+    <!-- Glass Fill for Checkmark -->
+    <linearGradient id="glass-fill" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255, 255, 255, 0.95)"/>
+      <stop offset="50%" stop-color="rgba(255, 255, 255, 0.5)"/>
+      <stop offset="100%" stop-color="rgba(255, 255, 255, 0.15)"/>
+    </linearGradient>
+  </defs>
+
+  <!-- === The 3D Gem Base Orb === -->
+  <circle cx="256" cy="256" r="160" fill="url(#gem)" filter="url(#glass-3d)" />
+
+  <!-- High-gloss overlay on orb to make it spherical (Light source top-left) -->
+  <ellipse cx="190" cy="140" rx="70" ry="35" fill="#ffffff" filter="url(#soft-glow)" opacity="0.65" transform="rotate(-30 190 140)" />
+  
+  <!-- Subtle reflection (Light bouncing off surface bottom-right) -->
+  <ellipse cx="320" cy="370" rx="80" ry="25" fill="#ffffff" filter="url(#soft-glow)" opacity="0.25" transform="rotate(-30 320 370)" />
+
+  <!-- === The Glassmorphic Checkmark === -->
+  <!-- Geometric perfect 45-degree angles -->
+  <path d="M 152 268 L 216 332 L 360 188" fill="none" stroke="url(#glass-fill)" stroke-width="56" stroke-linecap="round" stroke-linejoin="round" filter="url(#glass-3d)"/>
+</svg>

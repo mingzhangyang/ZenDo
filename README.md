@@ -2,19 +2,39 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# Zen Do
 
-This contains everything you need to run your app locally.
+Minimalist TODO app built with React + Vite, prepared for Cloudflare Workers deployment.
 
-View your app in AI Studio: https://ai.studio/apps/fab060e7-d023-4f4d-9622-42779fac5e23
+## PWA support
 
-## Run Locally
+- Web app manifest: [`public/manifest.webmanifest`](./public/manifest.webmanifest)
+- Service worker (offline shell + asset caching): [`public/sw.js`](./public/sw.js)
+- Install icons: [`public/icon-192.svg`](./public/icon-192.svg), [`public/icon-512.svg`](./public/icon-512.svg)
 
-**Prerequisites:**  Node.js
+## Run locally
+
+**Prerequisites:** Node.js
 
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+2. Run the app:
    `npm run dev`
+
+## Deploy to Cloudflare Workers
+
+1. Install dependencies:
+   `npm install`
+2. Authenticate with Cloudflare:
+   `npx wrangler login`
+3. Set your Worker name in [wrangler.jsonc](./wrangler.jsonc) (`name` field)
+4. Deploy:
+   `npm run deploy`
+
+### Useful commands
+
+- Local Worker preview:
+  `npm run cf:dev`
+- Production deploy:
+  `npm run deploy`
