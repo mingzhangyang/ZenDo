@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, KeyboardEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, Lightbulb, Pause, Play } from 'lucide-react';
+import { ArrowLeft, Pause, Play } from 'lucide-react';
 import { classifyTodoDetailed } from './lib/ai';
 import { loadDailyMetrics, loadTodos, persistStateSnapshot } from './lib/db';
 import { CategoryId, DailyMetric, TodoEvent, TodoItem, TodoEventType } from './lib/types';
@@ -591,13 +591,10 @@ export default function App() {
           <div className="flex justify-end mb-5">
             <button
               onClick={() => setViewMode('analytics')}
-              className="group h-10 w-10 hover:w-36 focus-visible:w-36 rounded-full border border-zinc-200 hover:border-zinc-400 text-zinc-600 hover:text-zinc-900 inline-flex items-center justify-center hover:justify-start focus-visible:justify-start gap-2 overflow-hidden px-0 hover:px-3 focus-visible:px-3 transition-all duration-300"
+              className="relative h-11 w-11 rounded-full bg-yellow-300/80 shadow-[0_0_36px_rgba(251,191,36,0.65)] hover:bg-yellow-300 focus-visible:bg-yellow-300 transition-all duration-300 hover:scale-105 focus-visible:scale-105 focus-visible:outline-none"
               aria-label={t.analytics}
             >
-              <Lightbulb size={15} className="shrink-0" />
-              <span className="text-xs uppercase tracking-widest whitespace-nowrap max-w-0 opacity-0 -translate-x-1 group-hover:max-w-24 group-hover:opacity-100 group-hover:translate-x-0 group-focus-visible:max-w-24 group-focus-visible:opacity-100 group-focus-visible:translate-x-0 transition-all duration-300">
-                {t.analytics}
-              </span>
+              <span className="pointer-events-none absolute inset-0 rounded-full bg-yellow-200/70 blur-md" />
             </button>
           </div>
         )}
