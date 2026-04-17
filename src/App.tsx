@@ -160,7 +160,7 @@ export default function App() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const persistQueueRef = useRef(Promise.resolve());
 
   useEffect(() => {
@@ -209,6 +209,13 @@ export default function App() {
       inputRef.current?.focus();
     }
   }, [viewMode]);
+
+  useEffect(() => {
+    const node = inputRef.current;
+    if (!node) return;
+    node.style.height = 'auto';
+    node.style.height = `${Math.min(node.scrollHeight, 220)}px`;
+  }, [input]);
 
   const t = TRANSLATIONS[locale];
 
@@ -430,8 +437,9 @@ export default function App() {
     return { days, max };
   }, [dailyMetrics]);
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') {
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
       handleAddTodo();
     }
   };
@@ -439,14 +447,14 @@ export default function App() {
   const renderTodoView = () => (
     <>
       <div className="flex items-start gap-3">
-        <input
+        <textarea
           ref={inputRef}
-          type="text"
           value={input}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={t.placeholder}
-          className="w-full text-3xl sm:text-4xl font-light bg-transparent border-none outline-none placeholder:text-zinc-300 text-zinc-800 focus:ring-0 mb-10 sm:mb-16 caret-zinc-300"
+          rows={1}
+          className="w-full resize-none overflow-y-auto text-3xl sm:text-4xl font-light leading-tight bg-transparent border-none outline-none placeholder:text-zinc-300 text-zinc-800 focus:ring-0 mb-10 sm:mb-16 caret-zinc-300 break-words [overflow-wrap:anywhere] max-h-[220px]"
         />
       </div>
 
@@ -477,7 +485,9 @@ export default function App() {
                       todo.completed ? 'text-zinc-300 line-through' : 'text-zinc-800 hover:opacity-70'
                     }`}
                   >
-                    <span className="text-xl md:text-2xl font-light leading-snug block">{todo.text}</span>
+                    <span className="text-xl md:text-2xl font-light leading-snug block whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                      {todo.text}
+                    </span>
                     <span className="text-[11px] uppercase tracking-wider text-zinc-400 mt-1 block">
                       {label || t.analyzing} · {formatMinutes(totalMinutes)} / {formatMinutes(todo.estimatedMinutes)}
                     </span>
