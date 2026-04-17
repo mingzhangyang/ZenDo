@@ -1,4 +1,5 @@
-const CACHE_NAME = 'zendo-v1';
+const SW_VERSION = new URL(self.location.href).searchParams.get('v') || 'dev';
+const CACHE_NAME = `zendo-${SW_VERSION}`;
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -19,7 +20,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((key) => key !== CACHE_NAME)
+          .filter((key) => key.startsWith('zendo-') && key !== CACHE_NAME)
           .map((key) => caches.delete(key)),
       ),
     ),
@@ -32,6 +33,7 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith('/api/')) return;
 
   // Keep navigations available offline by falling back to cached app shell.
   if (event.request.mode === 'navigate') {

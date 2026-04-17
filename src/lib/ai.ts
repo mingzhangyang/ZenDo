@@ -1,6 +1,7 @@
 import { CategoryId, CategoryScore, ClassifyResult } from './types';
 
 const DEFAULT_ESTIMATED_MINUTES = 25;
+const DEFAULT_CLASSIFY_TIMEOUT_MS = 3500;
 
 const CATEGORY_KEYWORDS: Array<{ id: CategoryId; keywords: string[] }> = [
   { id: 'work_execution', keywords: ['项目', '需求', '文档', '代码', '发布', '复盘', 'plan', 'project', 'code', 'release'] },
@@ -59,36 +60,90 @@ function fallbackClassify(text: string): ClassifyResult {
   };
 }
 
-export async function classifyTodo(text: string, locale: string): Promise<ClassifyResult> {
+type ClassifySource = 'api' | 'fallback';
+type FallbackReason = 'empty_text' | 'timeout' | 'request_failed' | 'bad_status' | 'invalid_payload';
+
+export interface ClassifyTodoDetailedResult {
+  result: ClassifyResult;
+  source: ClassifySource;
+  fallbackReason?: FallbackReason;
+}
+
+interface ClassifyTodoOptions {
+  timeoutMs?: number;
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError';
+}
+
+export async function classifyTodoDetailed(
+  text: string,
+  locale: string,
+  options: ClassifyTodoOptions = {},
+): Promise<ClassifyTodoDetailedResult> {
   const safeText = text.trim();
-  if (!safeText) return fallbackClassify(safeText);
+  if (!safeText) {
+    return {
+      result: fallbackClassify(safeText),
+      source: 'fallback',
+      fallbackReason: 'empty_text',
+    };
+  }
 
   try {
+    const timeoutMs = Math.max(1000, Math.round(options.timeoutMs ?? DEFAULT_CLASSIFY_TIMEOUT_MS));
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 1700);
-    const response = await fetch('/api/v1/classify', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text: safeText, locale }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    let response: Response;
+    try {
+      response = await fetch('/api/v1/classify', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text: safeText, locale }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!response.ok) {
-      return fallbackClassify(safeText);
+      return {
+        result: fallbackClassify(safeText),
+        source: 'fallback',
+        fallbackReason: 'bad_status',
+      };
     }
 
     const data = (await response.json()) as Partial<ClassifyResult>;
     const categories = normalizeCategories(data.categories);
-    if (categories.length === 0) return fallbackClassify(safeText);
+    if (categories.length === 0) {
+      return {
+        result: fallbackClassify(safeText),
+        source: 'fallback',
+        fallbackReason: 'invalid_payload',
+      };
+    }
 
     return {
-      categories,
-      estimatedMinutes: Math.max(5, Math.round(Number(data.estimatedMinutes) || DEFAULT_ESTIMATED_MINUTES)),
-      urgency: data.urgency === 'low' || data.urgency === 'high' ? data.urgency : 'medium',
-      confidence: clampScore(Number(data.confidence) || categories[0].score),
+      result: {
+        categories,
+        estimatedMinutes: Math.max(5, Math.round(Number(data.estimatedMinutes) || DEFAULT_ESTIMATED_MINUTES)),
+        urgency: data.urgency === 'low' || data.urgency === 'high' ? data.urgency : 'medium',
+        confidence: clampScore(Number(data.confidence) || categories[0].score),
+      },
+      source: 'api',
     };
-  } catch {
-    return fallbackClassify(safeText);
+  } catch (error) {
+    return {
+      result: fallbackClassify(safeText),
+      source: 'fallback',
+      fallbackReason: isAbortError(error) ? 'timeout' : 'request_failed',
+    };
   }
+}
+
+export async function classifyTodo(text: string, locale: string): Promise<ClassifyResult> {
+  const detailed = await classifyTodoDetailed(text, locale);
+  return detailed.result;
 }

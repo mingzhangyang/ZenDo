@@ -8,7 +8,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "cf:dev": "npm run build && npx wrangler dev",
-    "deploy": "npm run build && npx wrangler deploy",
+    "cf:dev:staging": "npm run build && npx wrangler dev --env staging",
+    "deploy": "npm run build && npx wrangler deploy --env production",
+    "deploy:staging": "npm run build && npx wrangler deploy --env staging",
+    "deploy:production": "npm run build && npx wrangler deploy --env production",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
   },

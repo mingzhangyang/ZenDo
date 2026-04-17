@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, KeyboardEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, Lightbulb, Pause, Play } from 'lucide-react';
-import { classifyTodo } from './lib/ai';
+import { classifyTodoDetailed } from './lib/ai';
 import { loadDailyMetrics, loadTodos, persistStateSnapshot } from './lib/db';
 import { CategoryId, DailyMetric, TodoEvent, TodoItem, TodoEventType } from './lib/types';
 
@@ -224,6 +224,50 @@ export default function App() {
       });
   };
 
+  const applyClassification = (
+    todoId: string,
+    text: string,
+    mode: 'primary' | 'retry',
+    timeoutMs: number,
+  ) => {
+    void (async () => {
+      const outcome = await classifyTodoDetailed(text, locale, { timeoutMs });
+
+      setTodos((prev) => {
+        const targetIndex = prev.findIndex((todo) => todo.id === todoId);
+        if (targetIndex < 0) return prev;
+
+        const target = prev[targetIndex];
+        if (mode === 'retry' && outcome.source !== 'api') return prev;
+
+        const updated: TodoItem = {
+          ...target,
+          categories: outcome.result.categories,
+          estimatedMinutes: outcome.result.estimatedMinutes,
+          urgency: outcome.result.urgency,
+          classificationConfidence: outcome.result.confidence,
+          updatedAt: new Date().toISOString(),
+        };
+
+        const next = [...prev];
+        next[targetIndex] = updated;
+        persistSnapshot(next, [
+          createEvent(todoId, 'classified', {
+            categories: outcome.result.categories,
+            confidence: outcome.result.confidence,
+            source: mode === 'retry' ? 'retry' : outcome.source,
+            fallbackReason: outcome.fallbackReason,
+          }),
+        ]);
+        return next;
+      });
+
+      if (mode === 'primary' && outcome.source === 'fallback') {
+        applyClassification(todoId, text, 'retry', 8000);
+      }
+    })();
+  };
+
   const handleAddTodo = () => {
     const text = input.trim();
     if (!text) return;
@@ -251,33 +295,7 @@ export default function App() {
       return next;
     });
 
-    void (async () => {
-      const classified = await classifyTodo(text, locale);
-      setTodos((prev) => {
-        const targetIndex = prev.findIndex((todo) => todo.id === created.id);
-        if (targetIndex < 0) return prev;
-
-        const target = prev[targetIndex];
-        const updated: TodoItem = {
-          ...target,
-          categories: classified.categories,
-          estimatedMinutes: classified.estimatedMinutes,
-          urgency: classified.urgency,
-          classificationConfidence: classified.confidence,
-          updatedAt: new Date().toISOString(),
-        };
-
-        const next = [...prev];
-        next[targetIndex] = updated;
-        persistSnapshot(next, [
-          createEvent(created.id, 'classified', {
-            categories: classified.categories,
-            confidence: classified.confidence,
-          }),
-        ]);
-        return next;
-      });
-    })();
+    applyClassification(created.id, text, 'primary', 3500);
   };
 
   const handleToggleTodo = (id: string) => {
