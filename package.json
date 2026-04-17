@@ -7,10 +7,8 @@
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
-    "cf:dev": "npm run build && npx wrangler dev",
-    "cf:dev:staging": "npm run build && npx wrangler dev --env staging",
+    "cf:dev": "npm run build && npx wrangler dev --env local",
     "deploy": "npm run build && npx wrangler deploy --env production",
-    "deploy:staging": "npm run build && npx wrangler deploy --env staging",
     "deploy:production": "npm run build && npx wrangler deploy --env production",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"

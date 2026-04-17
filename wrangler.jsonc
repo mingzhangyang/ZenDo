@@ -13,15 +13,15 @@
     "binding": "AI"
   },
   "vars": {
-    "APP_ENV": "local",
+    "APP_ENV": "production",
     "AI_MODEL": "@cf/zai-org/glm-4.7-flash"
   },
   "env": {
-    "staging": {
-      "name": "zendo-staging",
+    "local": {
+      "name": "zendo-local",
       "workers_dev": true,
       "vars": {
-        "APP_ENV": "staging",
+        "APP_ENV": "local",
         "AI_MODEL": "@cf/zai-org/glm-4.7-flash"
       }
     },

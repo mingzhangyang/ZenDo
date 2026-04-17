@@ -25,18 +25,14 @@ Minimalist TODO app built with React + Vite, prepared for Cloudflare Workers dep
 2. Authenticate with Cloudflare:
    `npx wrangler login`
 3. Configure deployment targets in [wrangler.jsonc](./wrangler.jsonc):
-   - `env.staging`: preview/staging Worker (`workers_dev: true`)
+   - `env.local`: local Worker preview config (`workers_dev: true`)
    - `env.production`: production Worker (`workers_dev: false`; ensure your route/domain is configured in Cloudflare)
-4. Deploy to staging:
-   `npm run deploy:staging`
-5. Deploy to production:
+4. Deploy to production:
    `npm run deploy:production`
 
 ### Useful commands
 
 - Local Worker preview:
   `npm run cf:dev`
-- Local Worker preview (staging config):
-  `npm run cf:dev:staging`
 - Production deploy:
   `npm run deploy:production`
