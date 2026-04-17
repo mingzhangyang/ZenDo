@@ -591,11 +591,13 @@ export default function App() {
           <div className="flex justify-end mb-5">
             <button
               onClick={() => setViewMode('analytics')}
-              className="h-10 px-3 rounded-full border border-zinc-200 hover:border-zinc-400 text-zinc-600 hover:text-zinc-900 transition-colors inline-flex items-center gap-2"
+              className="group h-10 w-10 hover:w-36 focus-visible:w-36 rounded-full border border-zinc-200 hover:border-zinc-400 text-zinc-600 hover:text-zinc-900 inline-flex items-center justify-center hover:justify-start focus-visible:justify-start gap-2 overflow-hidden px-0 hover:px-3 focus-visible:px-3 transition-all duration-300"
               aria-label={t.analytics}
             >
-              <Lightbulb size={15} />
-              <span className="text-xs uppercase tracking-widest">{t.analytics}</span>
+              <Lightbulb size={15} className="shrink-0" />
+              <span className="text-xs uppercase tracking-widest whitespace-nowrap max-w-0 opacity-0 -translate-x-1 group-hover:max-w-24 group-hover:opacity-100 group-hover:translate-x-0 group-focus-visible:max-w-24 group-focus-visible:opacity-100 group-focus-visible:translate-x-0 transition-all duration-300">
+                {t.analytics}
+              </span>
             </button>
           </div>
         )}
