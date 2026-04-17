@@ -11,6 +11,7 @@ interface Translation {
   analytics: string;
   back: string;
   overview: string;
+  sevenDayCompletion: string;
   completionRate: string;
   spentHours: string;
   topCategory: string;
@@ -28,6 +29,7 @@ const TRANSLATIONS: Record<'zh' | 'en' | 'ja' | 'es', Translation> = {
     analytics: '分析',
     back: '返回',
     overview: '本周概览',
+    sevenDayCompletion: '7日完成趋势',
     completionRate: '完成率',
     spentHours: '投入时间',
     topCategory: '最投入类别',
@@ -43,6 +45,7 @@ const TRANSLATIONS: Record<'zh' | 'en' | 'ja' | 'es', Translation> = {
     analytics: 'Analytics',
     back: 'Back',
     overview: 'Weekly Overview',
+    sevenDayCompletion: '7-Day Completion',
     completionRate: 'Completion',
     spentHours: 'Time Spent',
     topCategory: 'Top Category',
@@ -58,6 +61,7 @@ const TRANSLATIONS: Record<'zh' | 'en' | 'ja' | 'es', Translation> = {
     analytics: '分析',
     back: '戻る',
     overview: '今週の概要',
+    sevenDayCompletion: '7日間の完了推移',
     completionRate: '完了率',
     spentHours: '投入時間',
     topCategory: '最多カテゴリ',
@@ -73,6 +77,7 @@ const TRANSLATIONS: Record<'zh' | 'en' | 'ja' | 'es', Translation> = {
     analytics: 'Análisis',
     back: 'Volver',
     overview: 'Resumen semanal',
+    sevenDayCompletion: 'Cumplimiento de 7 días',
     completionRate: 'Finalización',
     spentHours: 'Tiempo invertido',
     topCategory: 'Categoría principal',
@@ -519,7 +524,7 @@ export default function App() {
       </div>
 
       <div className="mb-8 rounded-2xl bg-white border border-zinc-200 p-4">
-        <p className="text-[11px] uppercase tracking-wider text-zinc-500 mb-3">7-Day Completion</p>
+        <p className="text-[11px] uppercase tracking-wider text-zinc-500 mb-3">{t.sevenDayCompletion}</p>
         <div className="flex items-end gap-2 h-24">
           {sevenDayCompletion.days.map((day) => {
             const height = `${Math.max(10, (day.value / sevenDayCompletion.max) * 100)}%`;
