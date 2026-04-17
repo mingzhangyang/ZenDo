@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, KeyboardEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, Pause, Play } from 'lucide-react';
+import { ArrowLeft, Lightbulb, Pause, Play } from 'lucide-react';
 import { classifyTodoDetailed } from './lib/ai';
 import { loadDailyMetrics, loadTodos, persistStateSnapshot } from './lib/db';
 import { CategoryId, DailyMetric, TodoEvent, TodoItem, TodoEventType } from './lib/types';
@@ -591,10 +591,10 @@ export default function App() {
           <div className="flex justify-end mb-5">
             <button
               onClick={() => setViewMode('analytics')}
-              className="relative h-11 w-11 rounded-full bg-yellow-300/80 shadow-[0_0_36px_rgba(251,191,36,0.65)] hover:bg-yellow-300 focus-visible:bg-yellow-300 transition-all duration-300 hover:scale-105 focus-visible:scale-105 focus-visible:outline-none"
+              className="h-10 w-10 inline-flex items-center justify-center text-amber-400 hover:text-amber-500 focus-visible:text-amber-500 transition-colors duration-200 focus-visible:outline-none"
               aria-label={t.analytics}
             >
-              <span className="pointer-events-none absolute inset-0 rounded-full bg-yellow-200/70 blur-md" />
+              <Lightbulb size={16} className="shrink-0" />
             </button>
           </div>
         )}
