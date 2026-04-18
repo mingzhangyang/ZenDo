@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, KeyboardEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, Lightbulb, Pause, Play } from 'lucide-react';
+import { ArrowLeft, Lightbulb } from 'lucide-react';
 import { classifyTodoDetailed } from './lib/ai';
 import { loadDailyMetrics, loadTodos, persistStateSnapshot } from './lib/db';
 import { CategoryId, DailyMetric, TodoEvent, TodoItem, TodoEventType } from './lib/types';
@@ -13,12 +13,10 @@ interface Translation {
   overview: string;
   sevenDayCompletion: string;
   completionRate: string;
-  spentHours: string;
+  totalTodos: string;
   topCategory: string;
   categoryBreakdown: string;
   noData: string;
-  startTimer: string;
-  pauseTimer: string;
   analyzing: string;
 }
 
@@ -31,12 +29,10 @@ const TRANSLATIONS: Record<'zh' | 'en' | 'ja' | 'es', Translation> = {
     overview: '本周概览',
     sevenDayCompletion: '7日完成趋势',
     completionRate: '完成率',
-    spentHours: '投入时间',
+    totalTodos: '待办总数',
     topCategory: '最投入类别',
     categoryBreakdown: '类别明细',
     noData: '暂无数据',
-    startTimer: '开始计时',
-    pauseTimer: '暂停计时',
     analyzing: 'AI 分类中',
   },
   en: {
@@ -47,12 +43,10 @@ const TRANSLATIONS: Record<'zh' | 'en' | 'ja' | 'es', Translation> = {
     overview: 'Weekly Overview',
     sevenDayCompletion: '7-Day Completion',
     completionRate: 'Completion',
-    spentHours: 'Time Spent',
+    totalTodos: 'Total Todos',
     topCategory: 'Top Category',
     categoryBreakdown: 'By Category',
     noData: 'No data',
-    startTimer: 'Start timer',
-    pauseTimer: 'Pause timer',
     analyzing: 'Classifying',
   },
   ja: {
@@ -63,12 +57,10 @@ const TRANSLATIONS: Record<'zh' | 'en' | 'ja' | 'es', Translation> = {
     overview: '今週の概要',
     sevenDayCompletion: '7日間の完了推移',
     completionRate: '完了率',
-    spentHours: '投入時間',
+    totalTodos: 'タスク総数',
     topCategory: '最多カテゴリ',
     categoryBreakdown: 'カテゴリ別',
     noData: 'データなし',
-    startTimer: '計測開始',
-    pauseTimer: '計測停止',
     analyzing: '分類中',
   },
   es: {
@@ -79,12 +71,10 @@ const TRANSLATIONS: Record<'zh' | 'en' | 'ja' | 'es', Translation> = {
     overview: 'Resumen semanal',
     sevenDayCompletion: 'Cumplimiento de 7 días',
     completionRate: 'Finalización',
-    spentHours: 'Tiempo invertido',
+    totalTodos: 'Tareas totales',
     topCategory: 'Categoría principal',
     categoryBreakdown: 'Por categoría',
     noData: 'Sin datos',
-    startTimer: 'Iniciar temporizador',
-    pauseTimer: 'Pausar temporizador',
     analyzing: 'Clasificando',
   },
 };
@@ -111,19 +101,6 @@ function getBrowserLocale(): Locale {
   return 'en';
 }
 
-function formatMinutes(minutes: number): string {
-  const safe = Math.max(0, minutes);
-  if (safe < 60) return `${safe}m`;
-  const hours = safe / 60;
-  return `${hours.toFixed(1)}h`;
-}
-
-function calculateRunningMinutes(startedAt: string | null, nowMs: number): number {
-  if (!startedAt) return 0;
-  const elapsed = Math.floor((nowMs - Date.parse(startedAt)) / 60000);
-  return Math.max(0, elapsed);
-}
-
 function createEvent(todoId: string, eventType: TodoEventType, payload?: Record<string, unknown>): TodoEvent {
   return {
     id: crypto.randomUUID(),
@@ -143,9 +120,7 @@ function deriveLegacyTodo(raw: { id: string; text: string; completed: boolean })
     createdAt: now,
     updatedAt: now,
     completedAt: raw.completed ? now : null,
-    activeSessionStartedAt: null,
     estimatedMinutes: 25,
-    actualMinutes: raw.completed ? 25 : 0,
     classificationConfidence: 0.4,
     urgency: 'medium',
     categories: [{ id: 'uncategorized', score: 0.5 }],
@@ -159,17 +134,11 @@ export default function App() {
   const [dailyMetrics, setDailyMetrics] = useState<DailyMetric[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
-  const [nowMs, setNowMs] = useState(() => Date.now());
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const persistQueueRef = useRef(Promise.resolve());
 
   useEffect(() => {
     setLocale(getBrowserLocale());
-  }, []);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
-    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -287,9 +256,7 @@ export default function App() {
       createdAt: now,
       updatedAt: now,
       completedAt: null,
-      activeSessionStartedAt: null,
       estimatedMinutes: 25,
-      actualMinutes: 0,
       classificationConfidence: 0.1,
       urgency: 'medium',
       categories: [{ id: 'uncategorized', score: 0.4 }],
@@ -312,17 +279,11 @@ export default function App() {
         if (todo.id !== id) return todo;
 
         const toggledToCompleted = !todo.completed;
-        const runningMinutes = calculateRunningMinutes(todo.activeSessionStartedAt, Date.parse(now));
-        const nextActualMinutes = toggledToCompleted
-          ? Math.max(todo.actualMinutes + runningMinutes, todo.estimatedMinutes)
-          : todo.actualMinutes;
 
         return {
           ...todo,
           completed: toggledToCompleted,
           completedAt: toggledToCompleted ? now : null,
-          activeSessionStartedAt: null,
-          actualMinutes: nextActualMinutes,
           updatedAt: now,
         };
       });
@@ -330,38 +291,6 @@ export default function App() {
       const toggledTodo = next.find((todo) => todo.id === id);
       if (toggledTodo) {
         persistSnapshot(next, [createEvent(id, toggledTodo.completed ? 'completed' : 'reopened')]);
-      }
-      return next;
-    });
-  };
-
-  const handleToggleSession = (id: string) => {
-    const now = new Date().toISOString();
-    setTodos((prev) => {
-      const next = prev.map((todo) => {
-        if (todo.id !== id || todo.completed) return todo;
-
-        if (todo.activeSessionStartedAt) {
-          const runningMinutes = calculateRunningMinutes(todo.activeSessionStartedAt, Date.parse(now));
-          return {
-            ...todo,
-            activeSessionStartedAt: null,
-            actualMinutes: todo.actualMinutes + runningMinutes,
-            updatedAt: now,
-          };
-        }
-
-        return {
-          ...todo,
-          activeSessionStartedAt: now,
-          updatedAt: now,
-        };
-      });
-
-      const target = next.find((todo) => todo.id === id);
-      if (target) {
-        const eventType: TodoEventType = target.activeSessionStartedAt ? 'started' : 'paused';
-        persistSnapshot(next, [createEvent(id, eventType)]);
       }
       return next;
     });
@@ -382,17 +311,15 @@ export default function App() {
   const completedTodosCount = useMemo(() => todos.filter((todo) => todo.completed).length, [todos]);
 
   const categoryStats = useMemo(() => {
-    const grouped = new Map<CategoryId, { total: number; completed: number; minutes: number }>();
+    const grouped = new Map<CategoryId, { total: number; completed: number }>();
 
     for (const todo of todos) {
       const categoryIds = todo.categories.length > 0 ? todo.categories.map((c) => c.id) : (['uncategorized'] as CategoryId[]);
-      const minutes = todo.actualMinutes + calculateRunningMinutes(todo.activeSessionStartedAt, nowMs);
 
       for (const categoryId of categoryIds) {
-        const current = grouped.get(categoryId) ?? { total: 0, completed: 0, minutes: 0 };
+        const current = grouped.get(categoryId) ?? { total: 0, completed: 0 };
         current.total += 1;
         if (todo.completed) current.completed += 1;
-        current.minutes += minutes;
         grouped.set(categoryId, current);
       }
     }
@@ -404,21 +331,18 @@ export default function App() {
         completionRate: value.total > 0 ? value.completed / value.total : 0,
       }))
       .sort((a, b) => {
-        if (b.minutes === a.minutes) return b.total - a.total;
-        return b.minutes - a.minutes;
+        if (b.completed === a.completed) return b.total - a.total;
+        return b.completed - a.completed;
       });
-  }, [todos, nowMs]);
+  }, [todos]);
 
   const overview = useMemo(() => {
     const total = todos.length;
     const completed = completedTodosCount;
     const completionRate = total > 0 ? completed / total : 0;
-    const spentMinutes = todos.reduce((sum, todo) => {
-      return sum + todo.actualMinutes + calculateRunningMinutes(todo.activeSessionStartedAt, nowMs);
-    }, 0);
     const topCategory = categoryStats[0]?.id ?? 'uncategorized';
-    return { total, completed, completionRate, spentMinutes, topCategory };
-  }, [todos, completedTodosCount, nowMs, categoryStats]);
+    return { total, completed, completionRate, topCategory };
+  }, [todos, completedTodosCount, categoryStats]);
 
   const sevenDayCompletion = useMemo(() => {
     const dayMap = new Map<string, number>();
@@ -461,8 +385,6 @@ export default function App() {
       <ul className="space-y-3 sm:space-y-5">
         <AnimatePresence initial={false}>
           {todos.map((todo) => {
-            const runningMinutes = calculateRunningMinutes(todo.activeSessionStartedAt, nowMs);
-            const totalMinutes = todo.actualMinutes + runningMinutes;
             const label = todo.categories
               .slice(0, 2)
               .map((cat) => CATEGORY_LABELS[cat.id][locale])
@@ -488,20 +410,8 @@ export default function App() {
                     <span className="text-xl md:text-2xl font-light leading-snug block whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                       {todo.text}
                     </span>
-                    <span className="text-[11px] uppercase tracking-wider text-zinc-400 mt-1 block">
-                      {label || t.analyzing} · {formatMinutes(totalMinutes)} / {formatMinutes(todo.estimatedMinutes)}
-                    </span>
+                    <span className="text-[11px] uppercase tracking-wider text-zinc-400 mt-1 block">{label || t.analyzing}</span>
                   </button>
-
-                  {!todo.completed && (
-                    <button
-                      onClick={() => handleToggleSession(todo.id)}
-                      className="h-9 w-9 mt-1 rounded-full border border-zinc-200 hover:border-zinc-400 flex items-center justify-center text-zinc-500 hover:text-zinc-800 transition-colors"
-                      aria-label={todo.activeSessionStartedAt ? t.pauseTimer : t.startTimer}
-                    >
-                      {todo.activeSessionStartedAt ? <Pause size={14} /> : <Play size={14} className="ml-0.5" />}
-                    </button>
-                  )}
                 </div>
               </motion.li>
             );
@@ -542,8 +452,8 @@ export default function App() {
           <p className="text-2xl mt-2 font-light">{Math.round(overview.completionRate * 100)}%</p>
         </div>
         <div className="rounded-2xl bg-white border border-zinc-200 p-4">
-          <p className="text-[11px] uppercase tracking-wider text-zinc-500">{t.spentHours}</p>
-          <p className="text-2xl mt-2 font-light">{formatMinutes(overview.spentMinutes)}</p>
+          <p className="text-[11px] uppercase tracking-wider text-zinc-500">{t.totalTodos}</p>
+          <p className="text-2xl mt-2 font-light">{overview.total}</p>
         </div>
         <div className="rounded-2xl bg-white border border-zinc-200 p-4 col-span-2">
           <p className="text-[11px] uppercase tracking-wider text-zinc-500">{t.topCategory}</p>
@@ -576,9 +486,7 @@ export default function App() {
                 <p className="text-sm">{CATEGORY_LABELS[stat.id][locale]}</p>
                 <p className="text-xs text-zinc-500">{Math.round(stat.completionRate * 100)}%</p>
               </div>
-              <p className="text-xs text-zinc-500 mt-1">
-                {stat.completed}/{stat.total} · {formatMinutes(stat.minutes)}
-              </p>
+              <p className="text-xs text-zinc-500 mt-1">{stat.completed}/{stat.total}</p>
             </li>
           ))}
         </ul>

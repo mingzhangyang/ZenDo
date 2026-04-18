@@ -18,13 +18,62 @@ const ipRequestWindows = new Map();
 let lastRateLimitCleanupAt = 0;
 
 const CATEGORY_KEYWORDS = [
-  { id: 'work_execution', keywords: ['项目', '需求', '文档', '代码', '发布', '复盘', 'plan', 'project', 'code'] },
-  { id: 'communication', keywords: ['会议', '沟通', '客户', '邮件', 'review', 'meeting', 'email', 'call'] },
-  { id: 'learning', keywords: ['学习', '阅读', '课程', '练习', 'learn', 'study', 'read', 'course'] },
-  { id: 'health', keywords: ['运动', '跑步', '健身', '睡觉', 'exercise', 'run', 'gym', 'sleep'] },
-  { id: 'life', keywords: ['家庭', '家务', '购物', '做饭', '生活', 'home', 'family', 'cook', 'clean'] },
-  { id: 'errands', keywords: ['报销', '缴费', '预约', '快递', '办事', 'pay', 'book', 'delivery'] },
+  {
+    id: 'work_execution',
+    cues: [
+      ['项目', 1.1], ['需求', 1.0], ['文档', 0.9], ['代码', 1.1], ['发布', 1.0], ['复盘', 0.8],
+      ['迭代', 0.9], ['bug', 1.0], ['修复', 0.8], ['开发', 1.0], ['实现', 0.9], ['设计稿', 0.8],
+      ['plan', 0.8], ['project', 1.0], ['code', 1.0], ['release', 1.0], ['deploy', 1.0], ['spec', 0.8],
+    ],
+  },
+  {
+    id: 'communication',
+    cues: [
+      ['会议', 1.1], ['沟通', 1.0], ['对齐', 1.0], ['客户', 0.9], ['邮件', 1.0], ['电话', 1.0], ['汇报', 0.9],
+      ['review', 0.8], ['meeting', 1.1], ['email', 1.0], ['call', 1.0], ['sync', 0.9], ['1:1', 0.8],
+      ['反馈', 0.8], ['评审', 0.9],
+    ],
+  },
+  {
+    id: 'learning',
+    cues: [
+      ['学习', 1.1], ['阅读', 1.0], ['课程', 1.0], ['练习', 0.9], ['刷题', 1.0], ['教程', 0.9], ['笔记', 0.8],
+      ['read', 1.0], ['study', 1.0], ['learn', 1.0], ['course', 1.0], ['tutorial', 0.9], ['research', 0.8],
+    ],
+  },
+  {
+    id: 'health',
+    cues: [
+      ['运动', 1.1], ['跑步', 1.0], ['健身', 1.1], ['睡觉', 1.0], ['散步', 0.8], ['冥想', 0.8], ['体检', 0.9],
+      ['exercise', 1.1], ['run', 1.0], ['gym', 1.1], ['sleep', 1.0], ['workout', 1.0], ['meditation', 0.8],
+    ],
+  },
+  {
+    id: 'life',
+    cues: [
+      ['家庭', 1.0], ['家务', 1.1], ['购物', 0.9], ['做饭', 1.0], ['生活', 0.8], ['孩子', 0.9], ['打扫', 1.0],
+      ['home', 0.9], ['family', 1.0], ['cook', 1.0], ['clean', 1.0], ['laundry', 1.0], ['groceries', 0.9],
+    ],
+  },
+  {
+    id: 'errands',
+    cues: [
+      ['报销', 1.1], ['缴费', 1.0], ['预约', 1.0], ['快递', 1.0], ['办事', 0.9], ['银行', 0.9], ['证件', 0.9],
+      ['发票', 0.9], ['采购', 0.8], ['pay', 1.0], ['book', 0.9], ['appointment', 1.0], ['delivery', 1.0],
+      ['renew', 0.8], ['tax', 0.9],
+    ],
+  },
 ];
+
+const CATEGORY_DEFINITIONS = [
+  'work_execution: shipping/building concrete work outputs',
+  'communication: meetings, syncs, emails, stakeholder conversations',
+  'learning: reading/studying/training/practice for skill growth',
+  'life: household/family/personal life management',
+  'health: exercise/sleep/medical/wellness',
+  'errands: administrative chores, appointments, payments, logistics',
+  'uncategorized: no clear fit',
+].join('\n');
 
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
@@ -133,16 +182,68 @@ function normalizeCategories(categories) {
   return normalized.slice(0, 3);
 }
 
-function fallbackClassify(text) {
-  const lowered = String(text || '').toLowerCase();
-  const matched = CATEGORY_KEYWORDS
-    .map((rule) => ({
-      id: rule.id,
-      score: rule.keywords.some((keyword) => lowered.includes(keyword.toLowerCase())) ? 0.7 : 0,
-    }))
-    .filter((item) => item.score > 0);
+function normalizeForMatch(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[\u3000\s]+/g, ' ')
+    .replace(/[.,!?;:()[\]{}"'`~@#$%^&*_+=|\\/<>-]+/g, ' ')
+    .trim();
+}
 
-  const categories = matched.length > 0 ? matched : [{ id: 'uncategorized', score: 0.5 }];
+function hasCue(normalizedText, paddedText, tokenSet, cue) {
+  if (!cue) return false;
+  const isAsciiWord = /^[a-z0-9][a-z0-9:_-]*$/i.test(cue);
+  if (isAsciiWord) {
+    if (tokenSet.has(cue)) return true;
+    return paddedText.includes(` ${cue} `);
+  }
+  return normalizedText.includes(cue);
+}
+
+function scoreByRules(text) {
+  const normalized = normalizeForMatch(text);
+  const tokens = normalized ? normalized.split(' ').filter(Boolean) : [];
+  const tokenSet = new Set(tokens);
+  const padded = ` ${normalized} `;
+
+  const rawScores = CATEGORY_KEYWORDS.map((rule) => {
+    const score = rule.cues.reduce((sum, [cue, weight]) => {
+      return hasCue(normalized, padded, tokenSet, cue) ? sum + Number(weight || 0) : sum;
+    }, 0);
+    // Saturation keeps scores in [0,1] while preserving ordering.
+    const normalizedScore = Math.max(0, Math.min(1, 1 - Math.exp(-score / 2.6)));
+    return { id: rule.id, score: normalizedScore };
+  }).filter((item) => item.score > 0);
+
+  if (rawScores.length === 0) return [{ id: 'uncategorized', score: 0.5 }];
+  rawScores.sort((a, b) => b.score - a.score);
+  return rawScores.slice(0, 3);
+}
+
+function mergeCategoryScores(aiCategories, ruleCategories, aiConfidence) {
+  const safeAiConfidence = Math.max(0, Math.min(1, Number(aiConfidence) || 0));
+  const aiWeight = safeAiConfidence >= 0.75 ? 0.8 : safeAiConfidence >= 0.55 ? 0.68 : 0.55;
+  const ruleWeight = 1 - aiWeight;
+  const merged = new Map();
+
+  for (const item of aiCategories) {
+    merged.set(item.id, (merged.get(item.id) || 0) + item.score * aiWeight);
+  }
+  for (const item of ruleCategories) {
+    merged.set(item.id, (merged.get(item.id) || 0) + item.score * ruleWeight);
+  }
+
+  const list = Array.from(merged.entries())
+    .map(([id, score]) => ({ id, score: Math.max(0, Math.min(1, score)) }))
+    .sort((a, b) => b.score - a.score);
+
+  const nonUncategorized = list.filter((item) => item.id !== 'uncategorized' && item.score >= 0.22);
+  if (nonUncategorized.length > 0) return nonUncategorized.slice(0, 3);
+  return list.length > 0 ? list.slice(0, 3) : [{ id: 'uncategorized', score: 0.5 }];
+}
+
+function fallbackClassify(text) {
+  const categories = scoreByRules(text);
   return {
     categories,
     estimatedMinutes: 25,
@@ -201,13 +302,24 @@ async function classifyWithWorkersAI(env, text, locale) {
   }
 
   const systemPrompt =
-    'You classify todo text. Return JSON only with keys: categories, estimatedMinutes, urgency, confidence. ' +
-    'categories is an array of up to 3 objects: {id, score}. Valid ids: ' +
-    CATEGORY_IDS.join(', ') +
-    '.';
+    'You classify TODO text into a fixed taxonomy. Return strict JSON only with keys: categories, estimatedMinutes, urgency, confidence.\n' +
+    'Category definitions:\n' +
+    CATEGORY_DEFINITIONS +
+    '\nRules:\n' +
+    '- categories: array of up to 3 objects {id, score}, score in [0,1], sorted desc.\n' +
+    '- Valid ids only: ' + CATEGORY_IDS.join(', ') + '.\n' +
+    '- Pick categories by action intent, not by surface nouns.\n' +
+    '- If one category is clearly dominant, make it score >=0.75.\n' +
+    '- Use uncategorized only when no category clearly fits.\n' +
+    '- Return compact JSON only, no markdown.';
   const userPrompt =
     `Locale: ${locale || 'en'}\n` +
     `Todo: ${text}\n` +
+    'Examples:\n' +
+    '- "和客户同步需求变更" => communication\n' +
+    '- "修复支付页面 bug 并上线" => work_execution\n' +
+    '- "预约体检" => health or errands (pick primary intent)\n' +
+    '- "学习 React hooks" => learning\n' +
     'Respond with strict JSON. No markdown.';
 
   const aiStartedAt = Date.now();
@@ -217,7 +329,7 @@ async function classifyWithWorkersAI(env, text, locale) {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      temperature: 0.2,
+      temperature: 0.1,
       max_tokens: 300,
     });
     const aiLatencyMs = Date.now() - aiStartedAt;
@@ -246,10 +358,13 @@ async function classifyWithWorkersAI(env, text, locale) {
 
     const urgency = parsed.urgency === 'low' || parsed.urgency === 'high' ? parsed.urgency : 'medium';
     const estimatedMinutes = Math.max(5, Math.round(Number(parsed.estimatedMinutes) || 25));
-    const confidence = Math.max(0, Math.min(1, Number(parsed.confidence) || categories[0].score));
+    const aiConfidence = Math.max(0, Math.min(1, Number(parsed.confidence) || categories[0].score));
+    const ruleCategories = scoreByRules(text);
+    const mergedCategories = mergeCategoryScores(categories, ruleCategories, aiConfidence);
+    const confidence = Math.max(mergedCategories[0]?.score || 0, aiConfidence * 0.7 + (ruleCategories[0]?.score || 0) * 0.3);
 
     return {
-      result: { categories, estimatedMinutes, urgency, confidence },
+      result: { categories: mergedCategories, estimatedMinutes, urgency, confidence: Math.max(0, Math.min(1, confidence)) },
       source: 'ai',
       reason: 'ok',
       model,

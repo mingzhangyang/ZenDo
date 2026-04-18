@@ -19,9 +19,7 @@ export interface TodoItem {
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;
-  activeSessionStartedAt: string | null;
   estimatedMinutes: number;
-  actualMinutes: number;
   classificationConfidence: number;
   urgency: 'low' | 'medium' | 'high';
   categories: CategoryScore[];
@@ -30,8 +28,6 @@ export interface TodoItem {
 export type TodoEventType =
   | 'created'
   | 'classified'
-  | 'started'
-  | 'paused'
   | 'completed'
   | 'reopened'
   | 'cleared';
@@ -50,7 +46,6 @@ export interface DailyMetric {
   categoryId: CategoryId;
   createdCount: number;
   completedCount: number;
-  timeMinutes: number;
 }
 
 export interface ClassifyResult {

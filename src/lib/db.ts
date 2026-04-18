@@ -32,6 +32,21 @@ function toDateKey(iso: string): string {
   return iso.slice(0, 10);
 }
 
+function normalizeTodo(todo: TodoItem): TodoItem {
+  return {
+    id: todo.id,
+    text: todo.text,
+    completed: todo.completed,
+    createdAt: todo.createdAt,
+    updatedAt: todo.updatedAt,
+    completedAt: todo.completedAt,
+    estimatedMinutes: Number.isFinite(todo.estimatedMinutes) ? todo.estimatedMinutes : 25,
+    classificationConfidence: Number.isFinite(todo.classificationConfidence) ? todo.classificationConfidence : 0.1,
+    urgency: todo.urgency ?? 'medium',
+    categories: Array.isArray(todo.categories) ? todo.categories : [{ id: 'uncategorized', score: 0.4 }],
+  };
+}
+
 function buildDailyMetrics(todos: TodoItem[]): DailyMetric[] {
   const rows = new Map<string, DailyMetric>();
 
@@ -46,7 +61,6 @@ function buildDailyMetrics(todos: TodoItem[]): DailyMetric[] {
       categoryId,
       createdCount: 0,
       completedCount: 0,
-      timeMinutes: 0,
     };
     rows.set(rowId, created);
     return created;
@@ -64,11 +78,9 @@ function buildDailyMetrics(todos: TodoItem[]): DailyMetric[] {
     if (!todo.completed || !todo.completedAt) continue;
 
     const completedDate = toDateKey(todo.completedAt);
-    const timeMinutes = Math.max(0, Math.round(todo.actualMinutes || todo.estimatedMinutes || 0));
     for (const categoryId of categoryIds) {
       const row = ensureRow(completedDate, categoryId);
       row.completedCount += 1;
-      row.timeMinutes += timeMinutes;
     }
   }
 
@@ -121,7 +133,7 @@ export async function loadTodos(): Promise<TodoItem[]> {
   const request = tx.objectStore(STORE_TODOS).getAll();
   const todos = await requestToPromise<ZendoDBStores[typeof STORE_TODOS][]>(request);
   await transactionDone(tx);
-  return todos.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return todos.map(normalizeTodo).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export async function loadDailyMetrics(): Promise<DailyMetric[]> {
@@ -142,7 +154,7 @@ export async function persistStateSnapshot(todos: TodoItem[], events: TodoEvent[
 
   todosStore.clear();
   for (const todo of todos) {
-    todosStore.put(todo);
+    todosStore.put(normalizeTodo(todo));
   }
 
   for (const event of events) {
