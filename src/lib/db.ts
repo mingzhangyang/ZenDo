@@ -47,7 +47,9 @@ function normalizeTodo(todo: TodoItem): TodoItem {
   };
 }
 
-function buildDailyMetrics(todos: TodoItem[]): DailyMetric[] {
+// completedCount is derived from events so it survives clearCompleted.
+// createdCount is still derived from the live todos list (categories are unknown at creation time).
+function buildDailyMetrics(todos: TodoItem[], allEvents: TodoEvent[]): DailyMetric[] {
   const rows = new Map<string, DailyMetric>();
 
   const ensureRow = (date: string, categoryId: TodoItem['categories'][number]['id']) => {
@@ -66,21 +68,34 @@ function buildDailyMetrics(todos: TodoItem[]): DailyMetric[] {
     return created;
   };
 
+  const todoCategoryMap = new Map<string, CategoryId[]>();
   for (const todo of todos) {
     const categoryIds: CategoryId[] =
       todo.categories.length > 0 ? todo.categories.map((c) => c.id) : ['uncategorized'];
-    const createdDate = toDateKey(todo.createdAt);
+    todoCategoryMap.set(todo.id, categoryIds);
 
+    const createdDate = toDateKey(todo.createdAt);
     for (const categoryId of categoryIds) {
       ensureRow(createdDate, categoryId).createdCount += 1;
     }
+  }
 
-    if (!todo.completed || !todo.completedAt) continue;
+  for (const event of allEvents) {
+    if (event.eventType !== 'completed') continue;
+    const completedDate = toDateKey(event.ts);
 
-    const completedDate = toDateKey(todo.completedAt);
+    // Prefer categories stored in the event payload (survives todo deletion).
+    // Fall back to the live todo's current categories if not recorded.
+    let categoryIds: CategoryId[];
+    const payloadCategories = event.payload?.categories;
+    if (Array.isArray(payloadCategories) && payloadCategories.length > 0) {
+      categoryIds = (payloadCategories as Array<{ id: CategoryId }>).map((c) => c.id);
+    } else {
+      categoryIds = todoCategoryMap.get(event.todoId) ?? ['uncategorized'];
+    }
+
     for (const categoryId of categoryIds) {
-      const row = ensureRow(completedDate, categoryId);
-      row.completedCount += 1;
+      ensureRow(completedDate, categoryId).completedCount += 1;
     }
   }
 
@@ -145,27 +160,28 @@ export async function loadDailyMetrics(): Promise<DailyMetric[]> {
   return metrics.sort((a, b) => a.date.localeCompare(b.date));
 }
 
-export async function persistStateSnapshot(todos: TodoItem[], events: TodoEvent[] = []): Promise<void> {
+export async function persistStateSnapshot(todos: TodoItem[], newEvents: TodoEvent[] = []): Promise<void> {
   const db = await openDb();
-  const tx = db.transaction([STORE_TODOS, STORE_EVENTS, STORE_METRICS], 'readwrite');
-  const todosStore = tx.objectStore(STORE_TODOS);
-  const eventsStore = tx.objectStore(STORE_EVENTS);
-  const metricsStore = tx.objectStore(STORE_METRICS);
 
+  // Transaction 1: write todos and new events atomically.
+  const tx1 = db.transaction([STORE_TODOS, STORE_EVENTS], 'readwrite');
+  const todosStore = tx1.objectStore(STORE_TODOS);
+  const eventsStore = tx1.objectStore(STORE_EVENTS);
   todosStore.clear();
-  for (const todo of todos) {
-    todosStore.put(normalizeTodo(todo));
-  }
+  for (const todo of todos) todosStore.put(normalizeTodo(todo));
+  for (const event of newEvents) eventsStore.put(event);
+  await transactionDone(tx1);
 
-  for (const event of events) {
-    eventsStore.put(event);
-  }
+  // Transaction 2: read the full event log (includes events from cleared todos).
+  const tx2 = db.transaction(STORE_EVENTS, 'readonly');
+  const allEvents = await requestToPromise<ZendoDBStores[typeof STORE_EVENTS][]>(tx2.objectStore(STORE_EVENTS).getAll());
+  await transactionDone(tx2);
 
+  // Transaction 3: rebuild metrics from all events + current todos.
+  const tx3 = db.transaction(STORE_METRICS, 'readwrite');
+  const metricsStore = tx3.objectStore(STORE_METRICS);
   metricsStore.clear();
-  const metricRows = buildDailyMetrics(todos);
-  for (const row of metricRows) {
-    metricsStore.put(row);
-  }
-
-  await transactionDone(tx);
+  const metricRows = buildDailyMetrics(todos, allEvents);
+  for (const row of metricRows) metricsStore.put(row);
+  await transactionDone(tx3);
 }

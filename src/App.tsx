@@ -134,6 +134,7 @@ export default function App() {
   const [dailyMetrics, setDailyMetrics] = useState<DailyMetric[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
+  const [dbError, setDbError] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const persistQueueRef = useRef(Promise.resolve());
 
@@ -145,26 +146,32 @@ export default function App() {
     let active = true;
 
     const bootstrap = async () => {
-      let nextTodos = await loadTodos();
-      if (nextTodos.length === 0) {
-        const saved = localStorage.getItem('zen-todos');
-        if (saved) {
-          try {
-            const legacy = JSON.parse(saved) as Array<{ id: string; text: string; completed: boolean }>;
-            nextTodos = legacy.map(deriveLegacyTodo);
-            await persistStateSnapshot(nextTodos, []);
-            localStorage.removeItem('zen-todos');
-          } catch {
-            nextTodos = [];
+      try {
+        let nextTodos = await loadTodos();
+        if (nextTodos.length === 0) {
+          const saved = localStorage.getItem('zen-todos');
+          if (saved) {
+            try {
+              const legacy = JSON.parse(saved) as Array<{ id: string; text: string; completed: boolean }>;
+              nextTodos = legacy.map(deriveLegacyTodo);
+              await persistStateSnapshot(nextTodos, []);
+              localStorage.removeItem('zen-todos');
+            } catch {
+              nextTodos = [];
+            }
           }
         }
-      }
 
-      const nextMetrics = await loadDailyMetrics();
-      if (!active) return;
-      setTodos(nextTodos);
-      setDailyMetrics(nextMetrics);
-      setLoading(false);
+        const nextMetrics = await loadDailyMetrics();
+        if (!active) return;
+        setTodos(nextTodos);
+        setDailyMetrics(nextMetrics);
+        setLoading(false);
+      } catch (err) {
+        if (!active) return;
+        setDbError(err instanceof Error ? err.message : 'Storage unavailable');
+        setLoading(false);
+      }
     };
 
     void bootstrap();
@@ -290,7 +297,8 @@ export default function App() {
 
       const toggledTodo = next.find((todo) => todo.id === id);
       if (toggledTodo) {
-        persistSnapshot(next, [createEvent(id, toggledTodo.completed ? 'completed' : 'reopened')]);
+        const payload = toggledTodo.completed ? { categories: toggledTodo.categories } : undefined;
+        persistSnapshot(next, [createEvent(id, toggledTodo.completed ? 'completed' : 'reopened', payload)]);
       }
       return next;
     });
@@ -498,6 +506,15 @@ export default function App() {
     return (
       <div className="min-h-screen bg-[#fafafa] text-zinc-800 font-sans tracking-tight px-6 py-16">
         <p className="text-sm text-zinc-500">{t.noData}...</p>
+      </div>
+    );
+  }
+
+  if (dbError) {
+    return (
+      <div className="min-h-screen bg-[#fafafa] text-zinc-800 font-sans tracking-tight px-6 py-16">
+        <p className="text-sm text-zinc-500">Storage unavailable — try a non-private window or check browser permissions.</p>
+        <p className="text-xs text-zinc-400 mt-2">{dbError}</p>
       </div>
     );
   }
