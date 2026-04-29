@@ -1,4 +1,5 @@
 import { CategoryId, DailyMetric, TodoEvent, TodoItem } from './types';
+import { orderTodos } from './todoOrdering';
 
 const DB_NAME = 'zendo-db';
 const DB_VERSION = 1;
@@ -148,7 +149,7 @@ export async function loadTodos(): Promise<TodoItem[]> {
   const request = tx.objectStore(STORE_TODOS).getAll();
   const todos = await requestToPromise<ZendoDBStores[typeof STORE_TODOS][]>(request);
   await transactionDone(tx);
-  return todos.map(normalizeTodo).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return orderTodos(todos.map(normalizeTodo));
 }
 
 export async function loadDailyMetrics(): Promise<DailyMetric[]> {

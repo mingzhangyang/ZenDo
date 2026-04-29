@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, Lightbulb } from 'lucide-react';
 import { classifyTodoDetailed } from './lib/ai';
 import { loadDailyMetrics, loadTodos, persistStateSnapshot } from './lib/db';
+import { orderTodos } from './lib/todoOrdering';
 import { CategoryId, DailyMetric, TodoEvent, TodoItem, TodoEventType } from './lib/types';
 
 interface Translation {
@@ -271,7 +272,7 @@ export default function App() {
 
     setInput('');
     setTodos((prev) => {
-      const next = [created, ...prev];
+      const next = orderTodos([created, ...prev]);
       persistSnapshot(next, [createEvent(created.id, 'created')]);
       return next;
     });
@@ -282,7 +283,7 @@ export default function App() {
   const handleToggleTodo = (id: string) => {
     const now = new Date().toISOString();
     setTodos((prev) => {
-      const next = prev.map((todo) => {
+      const updatedTodos = prev.map((todo) => {
         if (todo.id !== id) return todo;
 
         const toggledToCompleted = !todo.completed;
@@ -294,6 +295,7 @@ export default function App() {
           updatedAt: now,
         };
       });
+      const next = orderTodos(updatedTodos);
 
       const toggledTodo = next.find((todo) => todo.id === id);
       if (toggledTodo) {
