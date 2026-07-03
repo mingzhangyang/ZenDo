@@ -102,6 +102,24 @@ function getBrowserLocale(): Locale {
   return 'en';
 }
 
+const DATE_LOCALE_TAGS: Record<Locale, string> = {
+  zh: 'zh-CN',
+  en: 'en-US',
+  ja: 'ja-JP',
+  es: 'es-ES',
+};
+
+function formatCreatedAt(iso: string, locale: Locale): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat(DATE_LOCALE_TAGS[locale], {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
 function createEvent(todoId: string, eventType: TodoEventType, payload?: Record<string, unknown>): TodoEvent {
   return {
     id: crypto.randomUUID(),
@@ -399,6 +417,7 @@ export default function App() {
               .slice(0, 2)
               .map((cat) => CATEGORY_LABELS[cat.id][locale])
               .join(' · ');
+            const createdLabel = formatCreatedAt(todo.createdAt, locale);
 
             return (
               <motion.li
@@ -420,7 +439,9 @@ export default function App() {
                     <span className="text-xl md:text-2xl font-light leading-snug block whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                       {todo.text}
                     </span>
-                    <span className="text-[11px] uppercase tracking-wider text-zinc-400 mt-1 block">{label || t.analyzing}</span>
+                    <span className="text-[11px] uppercase tracking-wider text-zinc-400 mt-1 block">
+                      {[label || t.analyzing, createdLabel].filter(Boolean).join(' · ')}
+                    </span>
                   </button>
                 </div>
               </motion.li>
