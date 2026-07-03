@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "zendo",
+  "name": "zen-do",
   "main": "worker.js",
   "compatibility_date": "2026-04-16",
   "workers_dev": false,
